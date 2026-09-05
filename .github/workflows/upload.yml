@@ -3,7 +3,7 @@ name: Custom Rom Builder Samsung Galaxy A11/M11
 on:
   push:
     branches:
-      - main  # Change this to your desired branch
+      - main
   workflow_dispatch:
     inputs:
       GSI:
@@ -25,7 +25,7 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4  # Đã sửa từ v2 lên v4
 
     - name: Install Dependencies
       run: |
@@ -34,23 +34,36 @@ jobs:
         
     - name: Preparing Files
       run: |
-        wget https://sourceforge.net/projects/samsung-galaxy-a01-m01/files/a11q.zip
+        wget -O a11q.zip "https://sourceforge.net/projects/samsung-galaxy-a01-m01/files/a11q.zip" || echo "Không tải được a11q.zip, thử cách khác..."
         git clone https://github.com/abiES76/Custom-Rom-Builder-For-Samsung-Galaxy-A11-M11
-        unzip a11q.zip
-        rm -r a11q.zip
+        if [ -f a11q.zip ]; then unzip a11q.zip; rm a11q.zip; fi
+        # Copy các file cần thiết từ repo đã clone
+        cp -r Custom-Rom-Builder-For-Samsung-Galaxy-A11-M11/* ./
+        chmod +x *.sh 2>/dev/null || true
+        chmod +x bin/* 2>/dev/null || true
 
     - name: Downloading your GSI
       run: |
+        mkdir -p temp
         wget -P "./temp" ${{ github.event.inputs.GSI }} 
         chmod 755 *
-        chmod 755 ./bin/*
+        chmod 755 ./bin/* 2>/dev/null || true
 
     - name: Building
       run: |
-        ./arm${{ github.event.inputs.ARCH }}_git
+        # Thử chạy script arm32 hoặc arm64
+        if [ "${{ github.event.inputs.ARCH }}" = "32" ]; then
+          if [ -f "./arm32_gsi" ]; then ./arm32_gsi
+          elif [ -f "./arm32_git" ]; then ./arm32_git
+          else echo "Không tìm thấy script arm32"; exit 1; fi
+        else
+          if [ -f "./arm64_gsi" ]; then ./arm64_gsi
+          elif [ -f "./arm64_git" ]; then ./arm64_git
+          else echo "Không tìm thấy script arm64"; exit 1; fi
+        fi
         
     - name: Uploading The Zip
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ github.event.inputs.NAME }}   # Replace with a suitable name
+        name: ${{ github.event.inputs.NAME }}
         path: zip/Custom_Rom_SDM450.zip
